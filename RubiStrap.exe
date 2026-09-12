@@ -1,0 +1,832 @@
+import json
+import os
+import glob
+import subprocess
+import time
+import tkinter as tk
+from tkinter import ttk, messagebox
+
+# =========================
+# RUBISTRAP CONFIG & IDIOMA
+# =========================
+
+APP_NAME = "RubiStrap"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+CONFIG_DIR = os.path.join(BASE_DIR, "config")
+CONFIG_FILE = os.path.join(CONFIG_DIR, "flags.json")
+APP_SETTINGS_FILE = os.path.join(CONFIG_DIR, "settings.json")
+
+flags = {}
+app_settings = {"language": None}
+
+# Lista extendida de Idiomas Soportados (Mundial)
+LANGUAGES = {
+    "Español": "es",
+    "English (US / UK)": "en",
+    "Português (Brasil / Portugal)": "pt",
+    "日本語 (Japonés)": "ja",
+    "Français (Francés)": "fr",
+    "Deutsch (Alemán)": "de",
+    "Italiano (Italiano)": "it",
+    "Русский (Ruso)": "ru",
+    "中文 - 简体 (Chino Simplificado)": "zh_cn",
+    "中文 - 繁體 (Chino Tradicional)": "zh_tw",
+    "한국어 (Coreano)": "ko",
+    "العربية (Árabe)": "ar",
+    "Türkçe (Turco)": "tr",
+    "Polski (Polaco)": "pl",
+    "Nederlands (Holandés)": "nl",
+    "Bahasa Indonesia (Indonesio)": "id",
+    "Tiếng Việt (Vietnamita)": "vi",
+    "ไทย (Tailandés)": "th",
+    "Svenska (Sueco)": "sv",
+    "Norsk (Noruego)": "no",
+    "Dansk (Danés)": "da",
+    "Suomi (Finlandés)": "fi",
+    "Čeština (Checo)": "cs",
+    "Magyar (Húngaro)": "hu",
+    "Română (Rumano)": "ro",
+    "Ελληνικά (Griego)": "el",
+    "Filipino (Tagalo)": "tl"
+}
+
+# Diccionario de Textos Principal
+TEXTS = {
+    "es": {
+        "welcome_sub": "Tu centro de configuración personalizado para Roblox.",
+        "status_title": "Estado del Sistema",
+        "roblox_ok": "● Roblox detectado",
+        "roblox_no": "● Roblox no detectado",
+        "flags_loaded": "● Flags cargados: ",
+        "config_ok": "● Configuración: lista",
+        "config_no": "● Configuración: no guardada aún",
+        "btn_editor": "Abrir FlagEditor",
+        "nav_home": "🏠  Inicio",
+        "nav_editor": "⚙  Editor Flags",
+        "nav_settings": "🚩  Ajustes FastFlag",
+        "nav_lang": "🌐  Cambiar Idioma",
+        "editor_title": "Editor de FastFlags",
+        "editor_sub": "Editá y guardá tus FastFlags manualmente.",
+        "btn_add": "Agregar Flag",
+        "btn_del": "Eliminar Flag",
+        "btn_save": "Guardar",
+        "btn_launch": "GUARDAR Y LANZAR ROBLOX",
+        "settings_title": "Ajustes FastFlag",
+        "settings_sub": "Ajustes rápidos de rendimiento y gráficos.",
+        "presets_title": "Perfiles Predefinidos",
+        "preset_max": "⚡ Máximo Rendimiento",
+        "preset_bal": "⚖ Equilibrado",
+        "preset_qual": "🎨 Calidad Visual",
+        "fps_title": "Límite de FPS",
+        "gfx_title": "Ajustes de Gráficos e Iluminación",
+        "chk_sky": "Cielo Gris (Quita la textura del cielo)",
+        "chk_postfx": "Desactivar Post-Procesado (Quita Blur general)",
+        "chk_shadows": "Desactivar Sombras Pesadas",
+        "chk_bloom": "Desactivar Brillo Intenso (Bloom)"
+    },
+    "en": {
+        "welcome_sub": "Your custom Roblox configuration hub.",
+        "status_title": "System Status",
+        "roblox_ok": "● Roblox detected",
+        "roblox_no": "● Roblox not detected",
+        "flags_loaded": "● Loaded flags: ",
+        "config_ok": "● Configuration: ready",
+        "config_no": "● Configuration: not saved yet",
+        "btn_editor": "Open FlagEditor",
+        "nav_home": "🏠  Home",
+        "nav_editor": "⚙  Flag Editor",
+        "nav_settings": "🚩  FastFlag Settings",
+        "nav_lang": "🌐  Change Language",
+        "editor_title": "FastFlag Editor",
+        "editor_sub": "Edit and save your FastFlags manually.",
+        "btn_add": "Add Flag",
+        "btn_del": "Delete Flag",
+        "btn_save": "Save",
+        "btn_launch": "SAVE & LAUNCH ROBLOX",
+        "settings_title": "FastFlag Settings",
+        "settings_sub": "Quick performance and graphics tweaks.",
+        "presets_title": "Presets",
+        "preset_max": "⚡ Max Performance",
+        "preset_bal": "⚖ Balanced",
+        "preset_qual": "🎨 Visual Quality",
+        "fps_title": "FPS Limit",
+        "gfx_title": "Graphics & Lighting Settings",
+        "chk_sky": "Gray Sky (Removes sky textures)",
+        "chk_postfx": "Disable Post-Processing (Removes Blur)",
+        "chk_shadows": "Disable Heavy Shadows",
+        "chk_bloom": "Disable Bloom Effect"
+    }
+}
+
+
+def cargar_app_settings():
+    global app_settings
+    if os.path.exists(APP_SETTINGS_FILE):
+        try:
+            with open(APP_SETTINGS_FILE, "r", encoding="utf-8") as f:
+                app_settings = json.load(f)
+        except Exception:
+            app_settings = {"language": None}
+
+
+def guardar_app_settings():
+    try:
+        os.makedirs(CONFIG_DIR, exist_ok=True)
+        with open(APP_SETTINGS_FILE, "w", encoding="utf-8") as f:
+            json.dump(app_settings, f, indent=4)
+    except Exception as e:
+        print(f"Error guardando settings: {e}")
+
+
+def get_txt(key):
+    lang = app_settings.get("language") or "es"
+    lang_dict = TEXTS.get(lang, TEXTS.get("en", TEXTS["es"]))
+    return lang_dict.get(key, TEXTS["es"].get(key, key))
+
+
+def parsear_valor(val):
+    if isinstance(val, bool):
+        return val
+    val_str = str(val).strip()
+    val_lower = val_str.lower()
+    if val_lower == "true":
+        return True
+    if val_lower == "false":
+        return False
+    try:
+        return int(val_str)
+    except ValueError:
+        pass
+    try:
+        return float(val_str)
+    except ValueError:
+        pass
+    return val_str
+
+
+# =========================================================
+# LOGO VECTORIAL EXACTO BLOXSTRAP (AZUL & CELESTE)
+# =========================================================
+
+def dibujar_logo_bloxstrap_exacto(canvas, cx, cy, size=80):
+    """
+    Dibuja la geometría exacta del logo de Bloxstrap (Pieza Superior e Inferior)
+    con un acople de color Azul y Celeste fluído y profesional.
+    """
+    s = size / 2.0
+    hole = s * 0.38      # Proporción del hueco cuadrado central de Roblox
+    gap = s * 0.18       # Ancho exacto de la grieta/corte diagonal
+
+    # -------------------------------------------------------------
+    # 1. PARTE SUPERIOR (Celeste Brillante / Cyan)
+    # -------------------------------------------------------------
+    poly_top = [
+        (cx - s, cy - gap),
+        (cx, cy - s),
+        (cx + s, cy - gap),
+        (cx + gap, cy - gap),
+        (cx + hole, cy - gap),
+        (cx, cy - hole - gap),
+        (cx - hole, cy - gap),
+        (cx - gap, cy - gap)
+    ]
+
+    # Borde neón exterior
+    canvas.create_polygon(poly_top, fill="#0077ff", outline="#00d2ff", width=2)
+
+    # Cuerpo principal Celeste
+    poly_top_inner = [
+        (cx - s + 2, cy - gap),
+        (cx, cy - s + 3),
+        (cx + s - 2, cy - gap),
+        (cx + hole - 2, cy - gap),
+        (cx, cy - hole - gap + 2),
+        (cx - hole + 2, cy - gap)
+    ]
+    canvas.create_polygon(poly_top_inner, fill="#00d2ff", outline="")
+
+    # -------------------------------------------------------------
+    # 2. PARTE INFERIOR (Azul Cobalto / Real)
+    # -------------------------------------------------------------
+    poly_bottom = [
+        (cx - s, cy + gap),
+        (cx - gap, cy + gap),
+        (cx - hole, cy + gap),
+        (cx, cy + hole + gap),
+        (cx + hole, cy + gap),
+        (cx + gap, cy + gap),
+        (cx + s, cy + gap),
+        (cx, cy + s)
+    ]
+
+    # Borde inferior
+    canvas.create_polygon(poly_bottom, fill="#0f34a0", outline="#1a62ff", width=2)
+
+    # Cuerpo principal Azul
+    poly_bottom_inner = [
+        (cx - s + 2, cy + gap),
+        (cx - hole + 2, cy + gap),
+        (cx, cy + hole + gap - 2),
+        (cx + hole - 2, cy + gap),
+        (cx + s - 2, cy + gap),
+        (cx, cy + s - 3)
+    ]
+    canvas.create_polygon(poly_bottom_inner, fill="#1a62ff", outline="")
+
+    # -------------------------------------------------------------
+    # 3. LÍNEAS DE BRILLO Y EMPALME
+    # -------------------------------------------------------------
+    canvas.create_line(cx - s, cy - gap, cx + s, cy - gap, fill="#70e4ff", width=2)
+    canvas.create_line(cx - s, cy + gap, cx + s, cy + gap, fill="#4080ff", width=2)
+
+
+# =========================
+# FLAGS MANAGEMENT
+# =========================
+
+def cargar_flags():
+    global flags
+    if not os.path.exists(CONFIG_FILE):
+        flags = {}
+        actualizar_lista()
+        actualizar_home()
+        actualizar_settings_ui()
+        return
+
+    try:
+        with open(CONFIG_FILE, "r", encoding="utf-8") as archivo:
+            raw_flags = json.load(archivo)
+            flags = {k: parsear_valor(v) for k, v in raw_flags.items()}
+
+        actualizar_lista()
+        actualizar_home()
+        actualizar_settings_ui()
+    except Exception as e:
+        messagebox.showerror("Error", f"No se pudieron cargar los flags:\n\n{e}")
+
+
+def guardar_flags():
+    try:
+        os.makedirs(CONFIG_DIR, exist_ok=True)
+        with open(CONFIG_FILE, "w", encoding="utf-8") as archivo:
+            json.dump(flags, archivo, indent=4)
+        actualizar_home()
+        return True
+    except Exception as e:
+        messagebox.showerror("Error", f"No se pudieron guardar los flags:\n\n{e}")
+        return False
+
+
+def actualizar_lista():
+    if 'lista' in globals() and lista.winfo_exists():
+        lista.delete(0, tk.END)
+        for nombre, valor in flags.items():
+            lista.insert(tk.END, f"{nombre} = {valor}")
+
+
+def agregar_flag():
+    ventana = tk.Toplevel(root)
+    ventana.title(get_txt("btn_add"))
+    ventana.geometry("420x220")
+    ventana.resizable(False, False)
+
+    tk.Label(ventana, text="Nombre del Flag:").pack(pady=(15, 5))
+    nombre_entry = tk.Entry(ventana, width=50)
+    nombre_entry.pack()
+
+    tk.Label(ventana, text="Valor:").pack(pady=(10, 5))
+    valor_entry = tk.Entry(ventana, width=50)
+    valor_entry.pack()
+
+    def confirmar():
+        nombre = nombre_entry.get().strip()
+        valor_raw = valor_entry.get().strip()
+        if not nombre or not valor_raw:
+            messagebox.showwarning("RubiStrap", "Completa todos los campos.")
+            return
+
+        flags[nombre] = parsear_valor(valor_raw)
+        actualizar_lista()
+        actualizar_home()
+        actualizar_settings_ui()
+        ventana.destroy()
+
+    tk.Button(ventana, text=get_txt("btn_add"), command=confirmar, width=15).pack(pady=20)
+
+
+def eliminar_flag():
+    seleccion = lista.curselection()
+    if not seleccion:
+        messagebox.showwarning("RubiStrap", "Seleccioná un flag primero.")
+        return
+
+    indice = seleccion[0]
+    texto = lista.get(indice)
+    nombre = texto.split(" = ", 1)[0]
+
+    if nombre in flags:
+        del flags[nombre]
+
+    actualizar_lista()
+    actualizar_home()
+    actualizar_settings_ui()
+
+
+def guardar():
+    if guardar_flags():
+        messagebox.showinfo("RubiStrap", "OK!")
+
+
+# =========================
+# BUSCAR & LANZAR ROBLOX
+# =========================
+
+def buscar_roblox():
+    local_appdata = os.environ.get("LOCALAPPDATA")
+    if not local_appdata:
+        return None
+    versions_dir = os.path.join(local_appdata, "Roblox", "Versions")
+    if not os.path.exists(versions_dir):
+        return None
+
+    candidatos = glob.glob(os.path.join(versions_dir, "*", "RobloxPlayerBeta.exe"))
+    if not candidatos:
+        return None
+
+    candidatos.sort(key=lambda archivo: os.path.getmtime(archivo), reverse=True)
+    return candidatos[0]
+
+
+def guardar_client_settings(roblox_exe):
+    version_dir = os.path.dirname(roblox_exe)
+    client_settings_dir = os.path.join(version_dir, "ClientSettings")
+    client_settings_file = os.path.join(client_settings_dir, "ClientAppSettings.json")
+    os.makedirs(client_settings_dir, exist_ok=True)
+
+    with open(client_settings_file, "w", encoding="utf-8") as archivo:
+        json.dump(flags, archivo, indent=4)
+
+    return client_settings_file
+
+
+def guardar_y_lanzar():
+    terminal = tk.Toplevel(root)
+    terminal.title("RubiStrap - Launch")
+    terminal.geometry("650x400")
+    terminal.configure(bg="black")
+
+    texto = tk.Text(terminal, bg="black", fg="#00ff66", insertbackground="#00ff66", font=("Consolas", 10))
+    texto.pack(fill="both", expand=True, padx=10, pady=10)
+
+    def escribir(mensaje):
+        texto.insert(tk.END, mensaje + "\n")
+        texto.see(tk.END)
+        terminal.update()
+
+    escribir("[RubiStrap] Iniciando...")
+    time.sleep(0.3)
+    roblox_exe = buscar_roblox()
+
+    if not roblox_exe:
+        escribir("[ERROR] No se encontró RobloxPlayerBeta.exe.")
+        messagebox.showerror("RubiStrap", "No se encontró Roblox Player.")
+        return
+
+    escribir(f"[OK] Roblox encontrado:\n{roblox_exe}")
+    time.sleep(0.3)
+
+    try:
+        client_file = guardar_client_settings(roblox_exe)
+        escribir(f"[OK] ClientAppSettings.json guardado:\n{client_file}")
+    except Exception as e:
+        escribir(f"[ERROR] {e}")
+        return
+
+    time.sleep(0.5)
+    escribir("[RubiStrap] Lanzando Roblox Player...")
+
+    try:
+        subprocess.Popen([roblox_exe], cwd=os.path.dirname(roblox_exe))
+        escribir("[OK] Roblox Player iniciado.")
+    except Exception as e:
+        escribir(f"[ERROR] {e}")
+
+
+# =========================
+# VISTAS DE LA INTERFAZ
+# =========================
+
+def actualizar_home():
+    if 'home_frame' not in globals() or not home_frame.winfo_exists():
+        return
+
+    roblox_exe = buscar_roblox()
+    if roblox_exe:
+        roblox_estado.config(text=get_txt("roblox_ok"), fg="#55e68a")
+    else:
+        roblox_estado.config(text=get_txt("roblox_no"), fg="#ff6b6b")
+
+    flags_estado.config(text=f"{get_txt('flags_loaded')}{len(flags)}")
+
+    if os.path.exists(CONFIG_FILE):
+        config_estado.config(text=get_txt("config_ok"), fg="#55e68a")
+    else:
+        config_estado.config(text=get_txt("config_no"), fg="#f0c674")
+
+
+def mostrar_pantalla(pantalla):
+    home_frame.pack_forget()
+    editor_frame.pack_forget()
+    settings_frame.pack_forget()
+
+    if pantalla == "home":
+        home_frame.pack(fill="both", expand=True)
+        actualizar_home()
+    elif pantalla == "editor":
+        editor_frame.pack(fill="both", expand=True)
+        actualizar_lista()
+    elif pantalla == "settings":
+        settings_frame.pack(fill="both", expand=True)
+        actualizar_settings_ui()
+
+
+def reconstruir_ui():
+    btn_home.config(text=get_txt("nav_home"))
+    btn_editor.config(text=get_txt("nav_editor"))
+    btn_settings.config(text=get_txt("nav_settings"))
+    btn_lang.config(text=get_txt("nav_lang"))
+
+    lbl_home_sub.config(text=get_txt("welcome_sub"))
+    lbl_status_title.config(text=get_txt("status_title"))
+    btn_home_editor.config(text=get_txt("btn_editor"))
+
+    lbl_editor_title.config(text=get_txt("editor_title"))
+    lbl_editor_sub.config(text=get_txt("editor_sub"))
+    btn_add_flag.config(text=get_txt("btn_add"))
+    btn_del_flag.config(text=get_txt("btn_del"))
+    btn_save_flag.config(text=get_txt("btn_save"))
+    btn_launch_game.config(text=get_txt("btn_launch"))
+
+    lbl_settings_title.config(text=get_txt("settings_title"))
+    lbl_settings_sub.config(text=get_txt("settings_sub"))
+    lbl_presets_title.config(text=get_txt("presets_title"))
+    btn_preset_max.config(text=get_txt("preset_max"))
+    btn_preset_bal.config(text=get_txt("preset_bal"))
+    btn_preset_qual.config(text=get_txt("preset_qual"))
+    lbl_fps_title.config(text=get_txt("fps_title"))
+    lbl_gfx_title.config(text=get_txt("gfx_title"))
+
+    chk_sky.config(text=get_txt("chk_sky"))
+    chk_postfx.config(text=get_txt("chk_postfx"))
+    chk_shadows.config(text=get_txt("chk_shadows"))
+    chk_bloom.config(text=get_txt("chk_bloom"))
+
+    actualizar_home()
+
+
+def confirmar_idioma_y_entrar():
+    idioma_seleccionado = combo_idiomas.get()
+    code = LANGUAGES.get(idioma_seleccionado, "es")
+
+    app_settings["language"] = code
+    guardar_app_settings()
+
+    lang_screen_frame.pack_forget()
+    sidebar.pack(side="left", fill="y")
+    contenido.pack(side="right", fill="both", expand=True)
+
+    reconstruir_ui()
+    mostrar_pantalla("home")
+
+
+def cambiar_idioma_desde_menu():
+    contenido.pack_forget()
+    sidebar.pack_forget()
+    lang_screen_frame.pack(fill="both", expand=True)
+
+
+def filtrar_idiomas(event):
+    typed = entry_search.get().strip().lower()
+    if not typed:
+        combo_idiomas['values'] = list(LANGUAGES.keys())
+    else:
+        filtrados = [lang for lang in LANGUAGES.keys() if typed in lang.lower()]
+        combo_idiomas['values'] = filtrados
+        if filtrados:
+            combo_idiomas.set(filtrados[0])
+
+
+def crear_pantalla_idioma():
+    global lang_screen_frame, combo_idiomas, entry_search
+
+    lang_screen_frame = tk.Frame(root, bg="#111116")
+
+    canvas_logo = tk.Canvas(lang_screen_frame, width=500, height=120, bg="#111116", highlightthickness=0)
+    canvas_logo.pack(pady=(40, 10))
+
+    # Rejilla decorativa suave de fondo
+    for x in range(0, 500, 25):
+        canvas_logo.create_line(x, 0, x, 120, fill="#1a1a24", width=1)
+    for y in range(0, 120, 25):
+        canvas_logo.create_line(0, y, 500, y, fill="#1a1a24", width=1)
+
+    # DIBUJO DEL LOGO AZUL Y CELESTE EXACTO
+    dibujar_logo_bloxstrap_exacto(canvas_logo, 60, 60, size=85)
+
+    canvas_logo.create_text(310, 48, text="RUBISTRAP", fill="#ffffff", font=("Segoe UI", 32, "bold"))
+    canvas_logo.create_text(295, 82, text="NEXT GEN ROBLOX BOOSTER", fill="#00d2ff", font=("Segoe UI", 10, "bold"))
+
+    tk.Label(
+        lang_screen_frame,
+        text="Select Language / Selecciona tu idioma / 言語を選択:",
+        bg="#111116", fg="#ffffff", font=("Segoe UI", 12, "bold")
+    ).pack(pady=(10, 8))
+
+    tk.Label(
+        lang_screen_frame,
+        text="🔍 Buscar / Search / 検索:",
+        bg="#111116", fg="#a8a8a8", font=("Segoe UI", 9)
+    ).pack(pady=(0, 2))
+
+    entry_search = tk.Entry(lang_screen_frame, bg="#22222b", fg="white", insertbackground="white", font=("Segoe UI", 10), width=32, relief="flat")
+    entry_search.pack(pady=(0, 10))
+    entry_search.bind("<KeyRelease>", filtrar_idiomas)
+
+    combo_idiomas = ttk.Combobox(
+        lang_screen_frame,
+        values=list(LANGUAGES.keys()),
+        state="readonly",
+        font=("Segoe UI", 10),
+        width=35,
+        height=12
+    )
+    combo_idiomas.set("Español")
+    combo_idiomas.pack(pady=(0, 20))
+
+    tk.Button(
+        lang_screen_frame, text="CONTINUAR / CONTINUE / 続行", command=confirmar_idioma_y_entrar,
+        bg="#0077ff", fg="white", activebackground="#0055cc", font=("Segoe UI", 11, "bold"),
+        width=28, height=2, relief="flat", cursor="hand2"
+    ).pack()
+
+
+def crear_home():
+    global home_frame, roblox_estado, flags_estado, config_estado
+    global lbl_home_sub, lbl_status_title, btn_home_editor
+
+    home_frame = tk.Frame(contenido, bg="#181818")
+
+    canvas_banner = tk.Canvas(home_frame, width=670, height=120, bg="#0f0f15", highlightthickness=0)
+    canvas_banner.pack(padx=35, pady=(20, 10))
+
+    for x in range(0, 670, 20):
+        canvas_banner.create_line(x, 0, x, 120, fill="#161622", width=1)
+    for y in range(0, 120, 20):
+        canvas_banner.create_line(0, y, 670, y, fill="#161622", width=1)
+
+    # DIBUJO DEL LOGO AZUL Y CELESTE EXACTO EN EL BANNER
+    dibujar_logo_bloxstrap_exacto(canvas_banner, 60, 60, size=85)
+
+    canvas_banner.create_text(270, 48, text="RUBISTRAP", fill="#ffffff", font=("Segoe UI", 32, "bold"))
+    canvas_banner.create_text(240, 82, text="NEXT GEN ROBLOX BOOSTER", fill="#00d2ff", font=("Segoe UI", 10, "bold"))
+
+    lbl_home_sub = tk.Label(home_frame, text=get_txt("welcome_sub"), bg="#181818", fg="#a8a8a8", font=("Segoe UI", 11))
+    lbl_home_sub.pack(anchor="w", padx=35)
+
+    estado_box = tk.Frame(home_frame, bg="#222222")
+    estado_box.pack(fill="x", padx=35, pady=20)
+
+    lbl_status_title = tk.Label(estado_box, text=get_txt("status_title"), bg="#222222", fg="white", font=("Segoe UI", 14, "bold"))
+    lbl_status_title.pack(anchor="w", padx=20, pady=(15, 8))
+
+    roblox_estado = tk.Label(estado_box, text="", bg="#222222", fg="#55e68a", font=("Segoe UI", 11))
+    roblox_estado.pack(anchor="w", padx=20, pady=3)
+
+    flags_estado = tk.Label(estado_box, text="", bg="#222222", fg="#dddddd", font=("Segoe UI", 11))
+    flags_estado.pack(anchor="w", padx=20, pady=3)
+
+    config_estado = tk.Label(estado_box, text="", bg="#222222", fg="#dddddd", font=("Segoe UI", 11))
+    config_estado.pack(anchor="w", padx=20, pady=(3, 15))
+
+    btn_home_editor = tk.Button(
+        home_frame, text=get_txt("btn_editor"), command=lambda: mostrar_pantalla("editor"),
+        bg="#0077ff", fg="white", activebackground="#0055cc", relief="flat", font=("Segoe UI", 11, "bold"), padx=20, pady=10, cursor="hand2"
+    )
+    btn_home_editor.pack(anchor="w", padx=35)
+
+
+def crear_editor():
+    global editor_frame, lista
+    global lbl_editor_title, lbl_editor_sub, btn_add_flag, btn_del_flag, btn_save_flag, btn_launch_game
+
+    editor_frame = tk.Frame(contenido, bg="#181818")
+
+    lbl_editor_title = tk.Label(editor_frame, text=get_txt("editor_title"), bg="#181818", fg="white", font=("Segoe UI", 24, "bold"))
+    lbl_editor_title.pack(anchor="w", padx=35, pady=(25, 3))
+
+    lbl_editor_sub = tk.Label(editor_frame, text=get_txt("editor_sub"), bg="#181818", fg="#a8a8a8", font=("Segoe UI", 11))
+    lbl_editor_sub.pack(anchor="w", padx=35, pady=(0, 10))
+
+    lista = tk.Listbox(editor_frame, width=75, height=13, bg="#222222", fg="#eeeeee", selectbackground="#0077ff", selectforeground="white", font=("Consolas", 10), relief="flat", highlightthickness=0)
+    lista.pack(padx=35, pady=10, fill="both", expand=True)
+
+    frame_botones = tk.Frame(editor_frame, bg="#181818")
+    frame_botones.pack(pady=10)
+
+    btn_add_flag = tk.Button(frame_botones, text=get_txt("btn_add"), command=agregar_flag, width=15, relief="flat")
+    btn_add_flag.grid(row=0, column=0, padx=5)
+
+    btn_del_flag = tk.Button(frame_botones, text=get_txt("btn_del"), command=eliminar_flag, width=15, relief="flat")
+    btn_del_flag.grid(row=0, column=1, padx=5)
+
+    btn_save_flag = tk.Button(frame_botones, text=get_txt("btn_save"), command=guardar, width=15, relief="flat")
+    btn_save_flag.grid(row=0, column=2, padx=5)
+
+    btn_launch_game = tk.Button(
+        editor_frame, text=get_txt("btn_launch"), command=guardar_y_lanzar, width=35, height=2,
+        bg="#0077ff", fg="white", activebackground="#0055cc", relief="flat", font=("Segoe UI", 10, "bold"), cursor="hand2"
+    )
+    btn_launch_game.pack(pady=(5, 20))
+
+
+def crear_settings():
+    global settings_frame
+    global var_sky, var_postfx, var_shadows, var_bloom
+    global lbl_settings_title, lbl_settings_sub, lbl_presets_title, btn_preset_max, btn_preset_bal, btn_preset_qual
+    global lbl_fps_title, lbl_gfx_title, chk_sky, chk_postfx, chk_shadows, chk_bloom
+
+    settings_frame = tk.Frame(contenido, bg="#181818")
+
+    lbl_settings_title = tk.Label(settings_frame, text=get_txt("settings_title"), bg="#181818", fg="white", font=("Segoe UI", 24, "bold"))
+    lbl_settings_title.pack(anchor="w", padx=35, pady=(25, 3))
+
+    lbl_settings_sub = tk.Label(settings_frame, text=get_txt("settings_sub"), bg="#181818", fg="#a8a8a8", font=("Segoe UI", 11))
+    lbl_settings_sub.pack(anchor="w", padx=35, pady=(0, 10))
+
+    # Presets
+    presets_box = tk.Frame(settings_frame, bg="#222222")
+    presets_box.pack(fill="x", padx=35, pady=8)
+
+    lbl_presets_title = tk.Label(presets_box, text=get_txt("presets_title"), bg="#222222", fg="white", font=("Segoe UI", 12, "bold"))
+    lbl_presets_title.pack(anchor="w", padx=20, pady=(12, 5))
+
+    frame_presets_btn = tk.Frame(presets_box, bg="#222222")
+    frame_presets_btn.pack(anchor="w", padx=20, pady=(0, 12))
+
+    def aplicar_perfil(tipo):
+        if tipo == "max":
+            flags["FFlagDebugSkyGray"] = True
+            flags["FFlagDisablePostFx"] = True
+            flags["FIntRenderShadowIntensity"] = 0
+            flags["FFlagEnableBloomEffect"] = False
+            flags["DFIntTaskSchedulerTargetFps"] = 999
+        elif tipo == "equilibrado":
+            flags["FFlagDebugSkyGray"] = False
+            flags["FFlagDisablePostFx"] = True
+            flags["FIntRenderShadowIntensity"] = 0
+            flags["FFlagEnableBloomEffect"] = False
+            flags["DFIntTaskSchedulerTargetFps"] = 144
+        elif tipo == "calidad":
+            flags.pop("FFlagDebugSkyGray", None)
+            flags.pop("FFlagDisablePostFx", None)
+            flags.pop("FIntRenderShadowIntensity", None)
+            flags.pop("FFlagEnableBloomEffect", None)
+            flags["DFIntTaskSchedulerTargetFps"] = 60
+
+        guardar_flags()
+        actualizar_settings_ui()
+        messagebox.showinfo("RubiStrap", f"Perfil '{tipo.capitalize()}' OK!")
+
+    btn_preset_max = tk.Button(frame_presets_btn, text=get_txt("preset_max"), command=lambda: aplicar_perfil("max"), bg="#0077ff", fg="white", relief="flat", font=("Segoe UI", 9, "bold"), padx=10, pady=5, cursor="hand2")
+    btn_preset_max.pack(side="left", padx=4)
+
+    btn_preset_bal = tk.Button(frame_presets_btn, text=get_txt("preset_bal"), command=lambda: aplicar_perfil("equilibrado"), bg="#333333", fg="white", relief="flat", font=("Segoe UI", 9, "bold"), padx=10, pady=5, cursor="hand2")
+    btn_preset_bal.pack(side="left", padx=4)
+
+    btn_preset_qual = tk.Button(frame_presets_btn, text=get_txt("preset_qual"), command=lambda: aplicar_perfil("calidad"), bg="#333333", fg="white", relief="flat", font=("Segoe UI", 9, "bold"), padx=10, pady=5, cursor="hand2")
+    btn_preset_qual.pack(side="left", padx=4)
+
+    # FPS
+    fps_box = tk.Frame(settings_frame, bg="#222222")
+    fps_box.pack(fill="x", padx=35, pady=8)
+
+    lbl_fps_title = tk.Label(fps_box, text=get_txt("fps_title"), bg="#222222", fg="white", font=("Segoe UI", 12, "bold"))
+    lbl_fps_title.pack(anchor="w", padx=20, pady=(12, 5))
+
+    frame_fps_btn = tk.Frame(fps_box, bg="#222222")
+    frame_fps_btn.pack(anchor="w", padx=20, pady=(0, 12))
+
+    def fijar_fps(valor):
+        flags["DFIntTaskSchedulerTargetFps"] = int(valor)
+        guardar_flags()
+        messagebox.showinfo("RubiStrap", f"FPS: {valor}")
+
+    for fps in [60, 120, 144, 240, 999]:
+        etiqueta = f"{fps} FPS" if fps != 999 else "MAX"
+        tk.Button(frame_fps_btn, text=etiqueta, command=lambda v=fps: fijar_fps(v), bg="#0077ff", fg="white", relief="flat", font=("Segoe UI", 9, "bold"), padx=10, pady=5, cursor="hand2").pack(side="left", padx=4)
+
+    # Gráficos
+    graficos_box = tk.Frame(settings_frame, bg="#222222")
+    graficos_box.pack(fill="x", padx=35, pady=8)
+
+    lbl_gfx_title = tk.Label(graficos_box, text=get_txt("gfx_title"), bg="#222222", fg="white", font=("Segoe UI", 12, "bold"))
+    lbl_gfx_title.pack(anchor="w", padx=20, pady=(12, 8))
+
+    var_sky = tk.BooleanVar()
+    var_postfx = tk.BooleanVar()
+    var_shadows = tk.BooleanVar()
+    var_bloom = tk.BooleanVar()
+
+    def toggle_sky():
+        flags["FFlagDebugSkyGray"] = var_sky.get()
+        guardar_flags()
+
+    def toggle_postfx():
+        flags["FFlagDisablePostFx"] = var_postfx.get()
+        guardar_flags()
+
+    def toggle_shadows():
+        if var_shadows.get():
+            flags["FIntRenderShadowIntensity"] = 0
+        else:
+            flags.pop("FIntRenderShadowIntensity", None)
+        guardar_flags()
+
+    def toggle_bloom():
+        flags["FFlagEnableBloomEffect"] = not var_bloom.get()
+        guardar_flags()
+
+    chk_sky = tk.Checkbutton(graficos_box, text=get_txt("chk_sky"), variable=var_sky, command=toggle_sky, bg="#222222", fg="white", selectcolor="#181818", activebackground="#222222", activeforeground="white", font=("Segoe UI", 10))
+    chk_sky.pack(anchor="w", padx=20, pady=2)
+
+    chk_postfx = tk.Checkbutton(graficos_box, text=get_txt("chk_postfx"), variable=var_postfx, command=toggle_postfx, bg="#222222", fg="white", selectcolor="#181818", activebackground="#222222", activeforeground="white", font=("Segoe UI", 10))
+    chk_postfx.pack(anchor="w", padx=20, pady=2)
+
+    chk_shadows = tk.Checkbutton(graficos_box, text=get_txt("chk_shadows"), variable=var_shadows, command=toggle_shadows, bg="#222222", fg="white", selectcolor="#181818", activebackground="#222222", activeforeground="white", font=("Segoe UI", 10))
+    chk_shadows.pack(anchor="w", padx=20, pady=2)
+
+    chk_bloom = tk.Checkbutton(graficos_box, text=get_txt("chk_bloom"), variable=var_bloom, command=toggle_bloom, bg="#222222", fg="white", selectcolor="#181818", activebackground="#222222", activeforeground="white", font=("Segoe UI", 10))
+    chk_bloom.pack(anchor="w", padx=20, pady=(2, 12))
+
+
+def actualizar_settings_ui():
+    if 'var_sky' in globals():
+        var_sky.set(bool(flags.get("FFlagDebugSkyGray", False)))
+        var_postfx.set(bool(flags.get("FFlagDisablePostFx", False)))
+        var_shadows.set(flags.get("FIntRenderShadowIntensity") == 0)
+        var_bloom.set(flags.get("FFlagEnableBloomEffect") == False)
+
+
+# =========================
+# VENTANA PRINCIPAL
+# =========================
+
+root = tk.Tk()
+root.title("RubiStrap")
+root.geometry("900x600")
+root.resizable(False, False)
+root.configure(bg="#181818")
+
+cargar_app_settings()
+
+crear_pantalla_idioma()
+
+# SIDEBAR
+sidebar = tk.Frame(root, bg="#111111", width=190)
+sidebar.pack_propagate(False)
+
+tk.Label(sidebar, text="💎 RubiStrap", bg="#111111", fg="white", font=("Segoe UI", 17, "bold")).pack(pady=(30, 35))
+
+btn_home = tk.Button(sidebar, text=get_txt("nav_home"), command=lambda: mostrar_pantalla("home"), bg="#111111", fg="white", activebackground="#292929", activeforeground="white", relief="flat", anchor="w", font=("Segoe UI", 11), padx=20, pady=12, cursor="hand2")
+btn_home.pack(fill="x")
+
+btn_editor = tk.Button(sidebar, text=get_txt("nav_editor"), command=lambda: mostrar_pantalla("editor"), bg="#111111", fg="white", activebackground="#292929", activeforeground="white", relief="flat", anchor="w", font=("Segoe UI", 11), padx=20, pady=12, cursor="hand2")
+btn_editor.pack(fill="x")
+
+btn_settings = tk.Button(sidebar, text=get_txt("nav_settings"), command=lambda: mostrar_pantalla("settings"), bg="#111111", fg="white", activebackground="#292929", activeforeground="white", relief="flat", anchor="w", font=("Segoe UI", 11), padx=20, pady=12, cursor="hand2")
+btn_settings.pack(fill="x")
+
+btn_lang = tk.Button(sidebar, text=get_txt("nav_lang"), command=cambiar_idioma_desde_menu, bg="#111111", fg="white", activebackground="#292929", activeforeground="white", relief="flat", anchor="w", font=("Segoe UI", 11), padx=20, pady=12, cursor="hand2")
+btn_lang.pack(fill="x")
+
+tk.Label(sidebar, text="RubiStrap v0.8", bg="#111111", fg="#777777", font=("Segoe UI", 9)).pack(side="bottom", pady=20)
+
+# CONTENIDO PRINCIPAL
+contenido = tk.Frame(root, bg="#181818")
+
+crear_home()
+crear_editor()
+crear_settings()
+
+cargar_flags()
+
+# CONTROL DE FLUJO AL INICIAR
+if not app_settings.get("language"):
+    lang_screen_frame.pack(fill="both", expand=True)
+else:
+    sidebar.pack(side="left", fill="y")
+    contenido.pack(side="right", fill="both", expand=True)
+    mostrar_pantalla("home")
+
+root.mainloop()
