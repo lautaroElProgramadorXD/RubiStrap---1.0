@@ -5,4 +5,3 @@ En esta página encontrarás el archivo ejecutable listo para su descarga y uso 
 Welcome to the official RubiStrap repository, the ultimate launcher
 designed to boost performance, optimize graphics, and reduce lag in Roblox quickly and easily.
 On this page, you will find the executable file ready for download and immediate use.
-Link : XD
